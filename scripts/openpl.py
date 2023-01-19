@@ -3,10 +3,10 @@ import requests
 import pandas as pd
 import re
 import pygsheets
+import sys
 
 BASE_URL = "https://www.openpowerlifting.org/u/" 
 cols = ['Last Name','First Name','openpowerlifting link', 'instagram', 'raw squat','raw bench','raw DL','raw total', 'eq squat','eq bench','eq DL','eq total', 'notes']
-df = pd.DataFrame(columns = cols)
 
 def get_data(name):
     """
@@ -60,7 +60,8 @@ def build_df(first, last):
 
 def main():
     parser = argparse.ArgumentParser(description='openpl to google sheets')
-    parser.add_argument('--credentials', dest="credentials", nargs=1)
+    parser.add_argument('--credentials', dest="credentials")
+    parser.add_argument('--sheet', dest="sheet")
     args = parser.parse_args()
     # load roster
     xls = pd.ExcelFile('cnats2023.xlsx')
@@ -68,26 +69,30 @@ def main():
     roster_df = roster_df[["Last Name", "First Name"]]
 
     #populate our big sheet
+    df = pd.DataFrame(columns = cols)
     for index, row in roster_df.iterrows():
         first = row['First Name']
         last = row['Last Name']
         df = df.append(build_df(first, last))
     
     df.to_excel('bestlifts.xlsx', index = False)
-    gc = pygsheets.authorize(service_file=args.credentials)# open sheet
-    sh = gc.open('Copy of Collegiate Nationals 2023')
 
-    #select the best lifters sheet
-    index = -1
-    count = 0
-    for s in sh:
-        if s.title == "best lifts test":
-            index = count
-        count += 1
-        
-    if index >= 0:
-        wks = sh[index]
-        wks.set_dataframe(df,(1,1), copy_index=False, nan="")
+    # if we passed in google sheets credentials 
+    if args.credentials and args.sheet:
+        gc = pygsheets.authorize(service_file=args.credentials) # open sheet
+        sh = gc.open(args.sheet)
+
+        #select the best lifters sheet
+        index = -1
+        count = 0
+        for s in sh:
+            if s.title == "best lifts test":
+                index = count
+            count += 1
+            
+        if index >= 0:
+            wks = sh[index]
+            wks.set_dataframe(df,(1,1), copy_index=False, nan="")
 
 if __name__ == "__main__":
     sys.exit(main())
